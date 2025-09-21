@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task History - Galaxy Theme</title>
+    <style>
+        body {
+            background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+            overflow-x: hidden;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 2rem;
+        }
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .star {
+            position: absolute;
+            background: #ffffff;
+            border-radius: 50%;
+            opacity: 0.7;
+            animation: twinkle 3s infinite alternate;
+        }
+        @keyframes twinkle {
+            0% { opacity: 0.3; }
+            100% { opacity: 0.8; }
+        }
+        .container {
+            max-width: 1400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 2.5rem;
+            color: #ffffff;
+        }
+        .username-display {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: #ffffff;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+        table {
+            width: 100%;
+            background-color: #1f2937;
+            opacity: 0.8;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border-radius: 0.75rem;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 1rem;
+            border: 1px solid #4b5563;
+            text-align: left;
+        }
+        th {
+            background-color: #111827;
+            font-weight: 600;
+        }
+        td.text-center {
+            text-align: center;
+        }
+        button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            color: #ffffff;
+            cursor: pointer;
+            border: none;
+            font-size: 1rem;
+            width: 200px;
+            max-width: 100%;
+        }
+        .bg-red-600 {
+            background-color: #dc2626;
+        }
+        .bg-red-600:hover {
+            background-color: #b91c1c;
+        }
+        .bg-blue-600 {
+            background-color: #2563eb;
+        }
+        .bg-blue-600:hover {
+            background-color: #1d4ed8;
+        }
+        .login-prompt {
+            text-align: center;
+            padding: 2rem;
+            background-color: #1f2937;
+            border-radius: 0.75rem;
+            margin-bottom: 2rem;
+        }
+        .hidden {
+            display: none;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) { /* Tablet and below */
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            button {
+                width: 100%;
+                max-width: 300px;
+                margin-bottom: 0.5rem;
+            }
+            table {
+                font-size: 0.9rem;
+            }
+            th, td {
+                padding: 0.75rem;
+            }
+        }
+
+        @media (max-width: 480px) { /* Mobile */
+            body {
+                padding: 1rem;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+            .username-display {
+                font-size: 1.2rem;
+            }
+            .controls {
+                gap: 0.5rem;
+            }
+            button {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.9rem;
+                max-width: 250px;
+            }
+            table {
+                font-size: 0.8rem;
+            }
+            th, td {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="stars" id="stars"></div>
+    <div class="container">
+        <div id="usernameDisplay" class="username-display hidden"></div>
+        <div id="loginPrompt" class="login-prompt">
+            <h2>Please Log In</h2>
+            <input type="text" id="usernameInput" placeholder="Enter Username (e.g., N, M)">
+            <button onclick="setUsernameAndLoad()" class="bg-blue-600">Set Username</button>
+        </div>
+        <div id="historyContent" class="hidden">
+            <h1>Task History</h1>
+            <div class="controls">
+                <button onclick="window.location.href='index.html'" class="bg-blue-600">Back to Planner</button>
+            </div>
+            <table id="historyTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Day</th>
+                        <th>Task</th>
+                        <th>Deadline</th>
+                        <th class="text-center">Done</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="historyList"></tbody>
+            </table>
+            <button onclick="clearHistory()" class="mt-4 bg-red-600">Clear History</button>
+        </div>
+    </div>
+    <script>
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        let currentUsername = '';
+
+        // Define username mappings to plans and display names
+        const usernamePlans = {
+            'N': { plan: 'planN', displayName: 'Nashar' },
+            'M': { plan: 'planM', displayName: 'Mo' }
+        };
+
+        function createStars() {
+            const starsContainer = document.getElementById('stars');
+            for (let i = 0; i < 150; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.width = `${Math.random() * 3 + 1}px`;
+                star.style.height = star.style.width;
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 100}%`;
+                star.style.animationDelay = `${Math.random() * 3}s`;
+                starsContainer.appendChild(star);
+            }
+        }
+
+        function setUsernameAndLoad() {
+            const username = document.getElementById('usernameInput').value.trim();
+            if (username && usernamePlans.hasOwnProperty(username)) {
+                currentUsername = username;
+                localStorage.setItem('lastUsername', currentUsername);
+                document.getElementById('usernameDisplay').textContent = `Welcome, ${usernamePlans[currentUsername].displayName}`;
+                document.getElementById('usernameDisplay').classList.remove('hidden');
+                document.getElementById('loginPrompt').classList.add('hidden');
+                document.getElementById('historyContent').classList.remove('hidden');
+                document.getElementById('usernameInput').value = '';
+                loadHistory();
+            } else {
+                alert('Invalid username. Use N, M, or add new usernames in the code.');
+            }
+        }
+
+        function loadHistory() {
+            if (!currentUsername) return;
+            const history = JSON.parse(localStorage.getItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`) || '[]');
+            const historyList = document.getElementById('historyList');
+            historyList.innerHTML = '';
+            history.forEach(entry => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${entry.date}</td>
+                    <td>${entry.day}</td>
+                    <td>${entry.taskText}</td>
+                    <td>${entry.deadline}</td>
+                    <td class="text-center">${entry.done ? '✅' : '⬜'}</td>
+                    <td class="text-center">${entry.deleted ? 'Deleted' : 'Active'}</td>
+                `;
+                historyList.appendChild(row);
+            });
+        }
+
+        function clearHistory() {
+            if (!currentUsername) return;
+            if (confirm('Are you sure you want to clear the history?')) {
+                localStorage.removeItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`);
+                loadHistory();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            createStars();
+            const lastUsername = localStorage.getItem('lastUsername');
+            if (lastUsername && usernamePlans.hasOwnProperty(lastUsername)) {
+                currentUsername = lastUsername;
+                document.getElementById('usernameDisplay').textContent = `Welcome, ${usernamePlans[currentUsername].displayName}`;
+                document.getElementById('usernameDisplay').classList.remove('hidden');
+                document.getElementById('loginPrompt').classList.add('hidden');
+                document.getElementById('historyContent').classList.remove('hidden');
+                loadHistory();
+            }
+            window.addEventListener('storage', (e) => {
+                if (e.key.startsWith('weeklyPlannerTasks_') || e.key.startsWith('weeklyPlannerHistory_')) {
+                    if (currentUsername && e.key.includes(usernamePlans[currentUsername].plan)) {
+                        loadHistory();
+                    }
+                }
+            });
+        });
+
+        document.getElementById('usernameInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') setUsernameAndLoad();
+        });
+    </script>
+</body>
+</html>
