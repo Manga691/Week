@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3rd planner</title>
+    <title>Weekly Planner - Galaxy Theme</title>
     <style>
         body {
             background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
@@ -208,11 +208,11 @@
         <div id="usernameDisplay" class="username-display hidden"></div>
         <div id="loginPrompt" class="login-prompt">
             <h2>Please Log In</h2>
-            <input type="text" id="usernameInput" placeholder="Enter Username ">
+            <input type="text" id="usernameInput" placeholder="Enter Username (e.g., N, M)">
             <button onclick="setUsernameAndLoad()" class="bg-blue-600">Set Username</button>
         </div>
         <div id="plannerContent" class="hidden">
-            <h1>3rd Planner</h1>
+            <h1>Weekly Planner</h1>
             <div class="controls">
                 <input type="text" id="taskInput" placeholder="Enter a task">
                 <select id="daySelect">
@@ -269,6 +269,16 @@
             'M': { plan: 'planM', displayName: 'Mo' }
         };
 
+        // Function to convert 24-hour time to 12-hour format with AM/PM
+        function formatTimeTo12Hour(time) {
+            if (!time) return 'No deadline';
+            const [hours, minutes] = time.split(':');
+            let hour = parseInt(hours, 10);
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            hour = hour % 12 || 12; // Convert 0 to 12 for midnight
+            return `${hour}:${minutes} ${ampm}`;
+        }
+
         function createStars() {
             const starsContainer = document.getElementById('stars');
             for (let i = 0; i < 150; i++) {
@@ -307,7 +317,7 @@
             if (taskText === '' || !currentUsername) return;
             const taskList = document.getElementById(day).querySelector('.task-list');
             const li = document.createElement('li');
-            const deadlineText = deadline ? deadline : 'No deadline';
+            const deadlineText = formatTimeTo12Hour(deadline);
             li.innerHTML = `
                 <div class="flex items-center">
                     <input type="checkbox" ${done ? 'checked' : ''}>
@@ -348,7 +358,9 @@
                 Array.from(taskList).forEach(li => {
                     const taskText = li.querySelector('span').textContent;
                     const isChecked = li.querySelector('input[type="checkbox"]').checked;
-                    const deadline = li.querySelector('.text-gray-300').textContent === 'No deadline' ? '' : li.querySelector('.text-gray-300').textContent;
+                    const deadlineText = li.querySelector('.text-gray-300').textContent;
+                    // Store the original 24-hour format for consistency
+                    const deadline = deadlineText === 'No deadline' ? '' : document.getElementById('deadlineInput').value || deadlineText;
                     tasks.push({ day, text: taskText, done: isChecked, deadline });
                 });
             });
@@ -368,7 +380,9 @@
             if (!currentUsername) return;
             const history = JSON.parse(localStorage.getItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`) || '[]');
             const date = new Date().toISOString().split('T')[0];
-            history.push({ date, day, taskText, done: isChecked, deadline: deadline || 'No deadline', deleted: isDeleted });
+            // Use 12-hour format for history as well
+            const formattedDeadline = formatTimeTo12Hour(deadline);
+            history.push({ date, day, taskText, done: isChecked, deadline: formattedDeadline, deleted: isDeleted });
             localStorage.setItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`, JSON.stringify(history));
         }
 
