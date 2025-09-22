@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3rd planner</title>
+    <title>3rd Planner</title>
     <style>
         body {
             background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
@@ -208,11 +208,11 @@
         <div id="usernameDisplay" class="username-display hidden"></div>
         <div id="loginPrompt" class="login-prompt">
             <h2>Please Log In</h2>
-            <input type="text" id="usernameInput" placeholder="Enter Username ">
+            <input type="text" id="usernameInput" placeholder="Enter Username (e.g., N, M)">
             <button onclick="setUsernameAndLoad()" class="bg-blue-600">Set Username</button>
         </div>
         <div id="plannerContent" class="hidden">
-            <h1>Weekly Planner</h1>
+            <h1>3rd Planner</h1>
             <div class="controls">
                 <input type="text" id="taskInput" placeholder="Enter a task">
                 <select id="daySelect">
@@ -227,6 +227,7 @@
                 <input type="time" id="deadlineInput">
                 <button onclick="addTask()" class="bg-blue-600">Add Task</button>
                 <button onclick="window.location.href='history.html'" class="bg-purple-600">View History</button>
+                <button onclick="window.location.href='dashboard.html'" class="bg-purple-600">View Dashboard</button>
                 <button onclick="deleteSelectedTasks()" class="bg-red-600">Delete Selected</button>
             </div>
             <div class="grid">
@@ -269,13 +270,19 @@
             'M': { plan: 'planM', displayName: 'Mo' }
         };
 
-        // Function to convert 24-hour time to 12-hour format with AM/PM
+        function generateUniqueId() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
         function formatTimeTo12Hour(time) {
             if (!time) return 'No deadline';
             const [hours, minutes] = time.split(':');
             let hour = parseInt(hours, 10);
             const ampm = hour >= 12 ? 'PM' : 'AM';
-            hour = hour % 12 || 12; // Convert 0 to 12 for midnight
+            hour = hour % 12 || 12;
             return `${hour}:${minutes} ${ampm}`;
         }
 
@@ -304,20 +311,21 @@
                 document.getElementById('plannerContent').classList.remove('hidden');
                 document.getElementById('usernameInput').value = '';
                 loadTasks();
-                syncHistory();
             } else {
                 alert('Invalid username. Use N, M, or add new usernames in the code.');
             }
         }
 
-        function addTask(taskText = '', day = '', deadline = '', done = false) {
+        function addTask(taskText = '', day = '', deadline = '', done = false, id = null) {
             taskText = taskText || document.getElementById('taskInput').value.trim();
             day = day || document.getElementById('daySelect').value;
             deadline = deadline || document.getElementById('deadlineInput').value;
             if (taskText === '' || !currentUsername) return;
+            const taskId = id || generateUniqueId();
             const taskList = document.getElementById(day).querySelector('.task-list');
             const li = document.createElement('li');
             const deadlineText = formatTimeTo12Hour(deadline);
+            li.dataset.id = taskId;
             li.innerHTML = `
                 <div class="flex items-center">
                     <input type="checkbox" ${done ? 'checked' : ''}>
@@ -329,7 +337,7 @@
             document.getElementById('taskInput').value = '';
             document.getElementById('deadlineInput').value = '';
             syncStorage();
-            syncHistory();
+            logTaskToHistory(taskId, day, taskText, done, deadline, false);
         }
 
         function deleteSelectedTasks() {
@@ -339,15 +347,15 @@
                 Array.from(taskList.children).forEach(li => {
                     const checkbox = li.querySelector('input[type="checkbox"]');
                     if (checkbox.checked) {
+                        const taskId = li.dataset.id;
                         const taskText = li.querySelector('span').textContent;
                         const deadline = li.querySelector('.text-gray-300').textContent === 'No deadline' ? '' : li.querySelector('.text-gray-300').textContent;
-                        logTaskToHistory(day, taskText, true, deadline, true);
+                        logTaskToHistory(taskId, day, taskText, checkbox.checked, deadline, true);
                         li.remove();
                     }
                 });
             });
             syncStorage();
-            syncHistory();
         }
 
         function syncStorage() {
@@ -356,12 +364,12 @@
             days.forEach(day => {
                 const taskList = document.getElementById(day).querySelector('.task-list').children;
                 Array.from(taskList).forEach(li => {
+                    const taskId = li.dataset.id;
                     const taskText = li.querySelector('span').textContent;
                     const isChecked = li.querySelector('input[type="checkbox"]').checked;
                     const deadlineText = li.querySelector('.text-gray-300').textContent;
-                    // Store the original 24-hour format for consistency
-                    const deadline = deadlineText === 'No deadline' ? '' : document.getElementById('deadlineInput').value || deadlineText;
-                    tasks.push({ day, text: taskText, done: isChecked, deadline });
+                    const deadline = deadlineText === 'No deadline' ? '' : deadlineText; // Use formatted deadline
+                    tasks.push({ id: taskId, day, text: taskText, done: isChecked, deadline });
                 });
             });
             localStorage.setItem(`weeklyPlannerTasks_${usernamePlans[currentUsername].plan}`, JSON.stringify(tasks));
@@ -373,23 +381,39 @@
             days.forEach(day => {
                 document.getElementById(day).querySelector('.task-list').innerHTML = '';
             });
-            tasks.forEach(task => addTask(task.text, task.day, task.deadline, task.done));
+            tasks.forEach(task => addTask(task.text, task.day, task.deadline, task.done, task.id));
         }
 
-        function logTaskToHistory(day, taskText, isChecked, deadline, isDeleted = false) {
+        function logTaskToHistory(taskId, day, taskText, isChecked, deadline, isDeleted = false) {
             if (!currentUsername) return;
-            const history = JSON.parse(localStorage.getItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`) || '[]');
+            let history = JSON.parse(localStorage.getItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`) || '[]');
             const date = new Date().toISOString().split('T')[0];
-            // Use 12-hour format for history as well
             const formattedDeadline = formatTimeTo12Hour(deadline);
-            history.push({ date, day, taskText, done: isChecked, deadline: formattedDeadline, deleted: isDeleted });
-            localStorage.setItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`, JSON.stringify(history));
-        }
-
-        function syncHistory() {
-            if (window.location.href.includes('history.html')) {
-                loadHistory();
+            const existingIndex = history.findIndex(entry => entry.id === taskId);
+            if (existingIndex === -1) {
+                history.push({
+                    id: taskId,
+                    creationDate: date,
+                    lastModifiedDate: date,
+                    completionDate: isChecked ? date : null,
+                    day,
+                    taskText,
+                    deadline: formattedDeadline,
+                    done: isChecked,
+                    deleted: isDeleted
+                });
+            } else {
+                const existing = history[existingIndex];
+                const newCompletionDate = (!existing.done && isChecked) ? date : existing.completionDate;
+                history[existingIndex] = {
+                    ...existing,
+                    lastModifiedDate: date,
+                    completionDate: newCompletionDate,
+                    done: isChecked,
+                    deleted: isDeleted
+                };
             }
+            localStorage.setItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`, JSON.stringify(history));
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -408,9 +432,6 @@
                     if (currentUsername && e.key.includes(usernamePlans[currentUsername].plan)) {
                         document.querySelectorAll('.task-list').forEach(list => list.innerHTML = '');
                         loadTasks();
-                        if (window.location.href.includes('history.html')) {
-                            loadHistory();
-                        }
                     }
                 }
             });
@@ -420,12 +441,12 @@
             if (e.target.type === 'checkbox') {
                 const li = e.target.closest('li');
                 const day = li.closest('div').id;
+                const taskId = li.dataset.id;
                 const taskText = li.querySelector('span').textContent;
                 const isChecked = e.target.checked;
                 const deadline = li.querySelector('.text-gray-300').textContent;
                 syncStorage();
-                logTaskToHistory(day, taskText, isChecked, deadline);
-                syncHistory();
+                logTaskToHistory(taskId, day, taskText, isChecked, deadline);
             }
         });
 
