@@ -57,6 +57,7 @@
             justify-content: center;
             margin-bottom: 3rem;
             flex-wrap: wrap;
+            gap: 1rem;
         }
         table {
             width: 100%;
@@ -100,6 +101,12 @@
         .bg-blue-600:hover {
             background-color: #1d4ed8;
         }
+        .bg-purple-600 {
+            background-color: #7c3aed;
+        }
+        .bg-purple-600:hover {
+            background-color: #6d28d9;
+        }
         .login-prompt {
             text-align: center;
             padding: 2rem;
@@ -110,9 +117,10 @@
         .hidden {
             display: none;
         }
-
-        /* Responsive Design */
-        @media (max-width: 768px) { /* Tablet and below */
+        input[type="checkbox"] {
+            cursor: pointer;
+        }
+        @media (max-width: 768px) {
             .controls {
                 flex-direction: column;
                 align-items: center;
@@ -129,8 +137,7 @@
                 padding: 0.75rem;
             }
         }
-
-        @media (max-width: 480px) { /* Mobile */
+        @media (max-width: 480px) {
             body {
                 padding: 1rem;
             }
@@ -170,11 +177,15 @@
             <h1>Task History</h1>
             <div class="controls">
                 <button onclick="window.location.href='index.html'" class="bg-blue-600">Back to Planner</button>
+                <button onclick="window.location.href='dashboard.html'" class="bg-purple-600">View Dashboard</button>
             </div>
             <table id="historyTable">
                 <thead>
                     <tr>
-                        <th>Date</th>
+                        <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>
+                        <th>Creation Date</th>
+                        <th>Last Modified</th>
+                        <th>Completion Date</th>
                         <th>Day</th>
                         <th>Task</th>
                         <th>Deadline</th>
@@ -184,14 +195,13 @@
                 </thead>
                 <tbody id="historyList"></tbody>
             </table>
-            <button onclick="clearHistory()" class="mt-4 bg-red-600">Clear History</button>
+            <button onclick="clearSelectedTasks()" class="mt-4 bg-red-600">Clear Selected Tasks</button>
         </div>
     </div>
     <script>
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         let currentUsername = '';
 
-        // Define username mappings to plans and display names
         const usernamePlans = {
             'N': { plan: 'planN', displayName: 'Nashar' },
             'M': { plan: 'planM', displayName: 'Mo' }
@@ -232,24 +242,54 @@
             const history = JSON.parse(localStorage.getItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`) || '[]');
             const historyList = document.getElementById('historyList');
             historyList.innerHTML = '';
-            history.forEach(entry => {
+            history.forEach((entry, index) => {
                 const row = document.createElement('tr');
+                row.dataset.id = entry.id;
                 row.innerHTML = `
-                    <td>${entry.date}</td>
-                    <td>${entry.day}</td>
-                    <td>${entry.taskText}</td>
-                    <td>${entry.deadline}</td>
+                    <td class="text-center"><input type="checkbox" class="task-select" data-index="${index}"></td>
+                    <td>${entry.creationDate || '-'}</td>
+                    <td>${entry.lastModifiedDate || '-'}</td>
+                    <td>${entry.completionDate || '-'}</td>
+                    <td>${entry.day || '-'}</td>
+                    <td>${entry.taskText || '-'}</td>
+                    <td>${entry.deadline || '-'}</td>
                     <td class="text-center">${entry.done ? '✅' : '⬜'}</td>
                     <td class="text-center">${entry.deleted ? 'Deleted' : 'Active'}</td>
                 `;
                 historyList.appendChild(row);
             });
+            updateSelectAllCheckbox();
         }
 
-        function clearHistory() {
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.task-select');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll.checked;
+            });
+        }
+
+        function updateSelectAllCheckbox() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.task-select');
+            const allChecked = Array.from(checkboxes).every(checkbox => checkbox.checked);
+            const someChecked = Array.from(checkboxes).some(checkbox => checkbox.checked);
+            selectAll.checked = allChecked;
+            selectAll.indeterminate = someChecked && !allChecked;
+        }
+
+        function clearSelectedTasks() {
             if (!currentUsername) return;
-            if (confirm('Are you sure you want to clear the history?')) {
-                localStorage.removeItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`);
+            const checkboxes = document.querySelectorAll('.task-select:checked');
+            if (checkboxes.length === 0) {
+                alert('Please select at least one task to clear.');
+                return;
+            }
+            if (confirm('Are you sure you want to clear the selected tasks?')) {
+                let history = JSON.parse(localStorage.getItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`) || '[]');
+                const indicesToRemove = Array.from(checkboxes).map(checkbox => parseInt(checkbox.dataset.index)).sort((a, b) => b - a);
+                indicesToRemove.forEach(index => history.splice(index, 1));
+                localStorage.setItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`, JSON.stringify(history));
                 loadHistory();
             }
         }
@@ -270,6 +310,11 @@
                     if (currentUsername && e.key.includes(usernamePlans[currentUsername].plan)) {
                         loadHistory();
                     }
+                }
+            });
+            document.getElementById('historyList').addEventListener('change', (e) => {
+                if (e.target.classList.contains('task-select')) {
+                    updateSelectAllCheckbox();
                 }
             });
         });
