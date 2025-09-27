@@ -42,7 +42,7 @@
             font-size: 2.5rem;
             font-weight: 700;
             text-align: center;
-            margin-bottom: 2.5rem;
+            margin-bottom: 1rem;
             color: #ffffff;
         }
         .username-display {
@@ -51,6 +51,63 @@
             font-weight: 600;
             margin-bottom: 1.5rem;
             color: #ffffff;
+        }
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            color: #ffffff;
+            cursor: pointer;
+            border: none;
+            font-size: 1rem;
+            background-color: #7c3aed;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .dropdown-button:hover {
+            background-color: #6d28d9;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #1f2937;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+            border-radius: 0.5rem;
+            right: 0;
+        }
+        .dropdown-content a {
+            color: #ffffff;
+            padding: 0.75rem 1rem;
+            text-decoration: none;
+            display: block;
+        }
+        .dropdown-content a:hover {
+            background-color: #374151;
+        }
+        .dropdown:hover .dropdown-content {
+            display: block;
         }
         .controls {
             display: flex;
@@ -87,12 +144,6 @@
         }
         .bg-blue-600:hover {
             background-color: #1d4ed8;
-        }
-        .bg-purple-600 {
-            background-color: #7c3aed;
-        }
-        .bg-purple-600:hover {
-            background-color: #6d28d9;
         }
         .bg-red-600 {
             background-color: #dc2626;
@@ -134,6 +185,10 @@
             margin-bottom: 0.5rem;
             background-color: #374151;
             border-radius: 0.375rem;
+            transition: opacity 0.3s;
+        }
+        .task-list li.completed {
+            opacity: 0.5;
         }
         .task-list input[type="checkbox"] {
             width: 1.5rem;
@@ -173,6 +228,13 @@
                 min-height: 200px;
                 padding: 1.5rem;
             }
+            .navbar {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            .nav-right {
+                align-items: center;
+            }
         }
         @media (max-width: 480px) {
             body {
@@ -199,6 +261,10 @@
             h2 {
                 font-size: 1.2rem;
             }
+            .dropdown-button {
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
+            }
         }
     </style>
 </head>
@@ -212,6 +278,26 @@
             <button onclick="setUsernameAndLoad()" class="bg-blue-600">Set Username</button>
         </div>
         <div id="plannerContent" class="hidden">
+            <div class="navbar">
+                <div class="nav-left">
+                    <div class="dropdown">
+                        <button class="dropdown-button" title="Menu">Menu 📋</button>
+                        <div class="dropdown-content" style="left: 0;">
+                            <a href="notes.html">Notes</a>
+                            <a href="break_rest_missions.html">Break Rest Missions</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="nav-right">
+                    <div class="dropdown">
+                        <button class="dropdown-button" title="Analysis">Analysis 📈</button>
+                        <div class="dropdown-content">
+                            <a href="history.html">History 📜</a>
+                            <a href="dashboard.html">Dashboard 📊</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <h1>3rd Planner</h1>
             <div class="controls">
                 <input type="text" id="taskInput" placeholder="Enter a task">
@@ -224,10 +310,13 @@
                     <option value="Fri">Friday</option>
                     <option value="Sat">Saturday</option>
                 </select>
-                <input type="time" id="deadlineInput">
+                <select id="deadlineInput">
+                    <option value="">No Deadline</option>
+                    <option value="Day">Day</option>
+                    <option value="Mid Day">Mid Day</option>
+                    <option value="Night">Night</option>
+                </select>
                 <button onclick="addTask()" class="bg-blue-600">Add Task</button>
-                <button onclick="window.location.href='history.html'" class="bg-purple-600">View History</button>
-                <button onclick="window.location.href='dashboard.html'" class="bg-purple-600">View Dashboard</button>
                 <button onclick="deleteSelectedTasks()" class="bg-red-600">Delete Selected</button>
             </div>
             <div class="grid">
@@ -277,15 +366,6 @@
             });
         }
 
-        function formatTimeTo12Hour(time) {
-            if (!time) return 'No deadline';
-            const [hours, minutes] = time.split(':');
-            let hour = parseInt(hours, 10);
-            const ampm = hour >= 12 ? 'PM' : 'AM';
-            hour = hour % 12 || 12;
-            return `${hour}:${minutes} ${ampm}`;
-        }
-
         function createStars() {
             const starsContainer = document.getElementById('stars');
             for (let i = 0; i < 150; i++) {
@@ -323,8 +403,8 @@
             if (taskText === '' || !currentUsername) return;
             const taskId = id || generateUniqueId();
             const taskList = document.getElementById(day).querySelector('.task-list');
+            const deadlineText = deadline || 'No deadline';
             const li = document.createElement('li');
-            const deadlineText = formatTimeTo12Hour(deadline);
             li.dataset.id = taskId;
             li.innerHTML = `
                 <div class="flex items-center">
@@ -333,11 +413,16 @@
                 </div>
                 <div class="text-sm text-gray-300">${deadlineText}</div>
             `;
+            if (done) {
+                li.classList.add('completed');
+            }
             taskList.appendChild(li);
             document.getElementById('taskInput').value = '';
             document.getElementById('deadlineInput').value = '';
             syncStorage();
-            logTaskToHistory(taskId, day, taskText, done, deadline, false);
+            if (!done) {
+                logTaskToHistory(taskId, day, taskText, done, deadline, false);
+            }
         }
 
         function deleteSelectedTasks() {
@@ -347,10 +432,6 @@
                 Array.from(taskList.children).forEach(li => {
                     const checkbox = li.querySelector('input[type="checkbox"]');
                     if (checkbox.checked) {
-                        const taskId = li.dataset.id;
-                        const taskText = li.querySelector('span').textContent;
-                        const deadline = li.querySelector('.text-gray-300').textContent === 'No deadline' ? '' : li.querySelector('.text-gray-300').textContent;
-                        logTaskToHistory(taskId, day, taskText, checkbox.checked, deadline, true);
                         li.remove();
                     }
                 });
@@ -368,7 +449,7 @@
                     const taskText = li.querySelector('span').textContent;
                     const isChecked = li.querySelector('input[type="checkbox"]').checked;
                     const deadlineText = li.querySelector('.text-gray-300').textContent;
-                    const deadline = deadlineText === 'No deadline' ? '' : deadlineText; // Use formatted deadline
+                    const deadline = deadlineText === 'No deadline' ? '' : deadlineText;
                     tasks.push({ id: taskId, day, text: taskText, done: isChecked, deadline });
                 });
             });
@@ -388,7 +469,7 @@
             if (!currentUsername) return;
             let history = JSON.parse(localStorage.getItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`) || '[]');
             const date = new Date().toISOString().split('T')[0];
-            const formattedDeadline = formatTimeTo12Hour(deadline);
+            const formattedDeadline = deadline || 'No deadline';
             const existingIndex = history.findIndex(entry => entry.id === taskId);
             if (existingIndex === -1) {
                 history.push({
@@ -445,8 +526,13 @@
                 const taskText = li.querySelector('span').textContent;
                 const isChecked = e.target.checked;
                 const deadline = li.querySelector('.text-gray-300').textContent;
+                if (isChecked) {
+                    li.classList.add('completed');
+                    logTaskToHistory(taskId, day, taskText, isChecked, deadline);
+                } else {
+                    li.classList.remove('completed');
+                }
                 syncStorage();
-                logTaskToHistory(taskId, day, taskText, isChecked, deadline);
             }
         });
 
