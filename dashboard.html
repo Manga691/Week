@@ -133,6 +133,22 @@
             border-radius: 0.75rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
+        .day-charts {
+            grid-column: span 2;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        .day-chart-card {
+            background-color: #1f2937;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            text-align: center;
+        }
+        .chart-wrapper {
+            max-width: 200px;
+            margin: 0 auto;
+        }
         @media (max-width: 768px) {
             .dashboard-grid {
                 grid-template-columns: 1fr;
@@ -151,6 +167,9 @@
             }
             .stats-table th, .stats-table td {
                 padding: 0.75rem;
+            }
+            .day-charts {
+                grid-column: span 1;
             }
         }
         @media (max-width: 480px) {
@@ -180,6 +199,9 @@
             .stats-table th, .stats-table td {
                 padding: 0.5rem;
             }
+            .chart-wrapper {
+                max-width: 150px;
+            }
         }
     </style>
 </head>
@@ -203,7 +225,7 @@
                     <h2>Overall Statistics</h2>
                     <ul>
                         <li>Total Tasks: <span id="totalTasks">0</span></li>
-                        <li>Completed: <span id="completedTasks">0</span></li>
+                        <li>Done: <span id="doneTasks">0</span></li>
                         <li>Active: <span id="activeTasks">0</span></li>
                         <li>Deleted: <span id="deletedTasks">0</span></li>
                     </ul>
@@ -215,7 +237,8 @@
                             <tr>
                                 <th>Date</th>
                                 <th>Added</th>
-                                <th>Completed</th>
+                                <th>Done</th>
+                                <th>Active</th>
                                 <th>Deleted</th>
                             </tr>
                         </thead>
@@ -224,13 +247,19 @@
                 </div>
                 <div id="chartContainer">
                     <h2>Statistics Chart</h2>
-                    <canvas id="statsChart"></canvas>
+                    <div class="chart-wrapper">
+                        <canvas id="statsChart"></canvas>
+                    </div>
+                </div>
+                <div class="day-charts">
+                    <!-- Day charts will be added here -->
                 </div>
             </div>
         </div>
     </div>
     <script>
         let currentUsername = '';
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
         const usernamePlans = {
             'N': { plan: 'planN', displayName: 'Nashar' },
@@ -273,38 +302,29 @@
 
             // Overall Stats
             const total = history.length || 0;
-            const completed = history.filter(entry => entry.done && !entry.deleted).length || 0;
+            const done = history.filter(entry => entry.done && !entry.deleted).length || 0;
             const active = history.filter(entry => !entry.done && !entry.deleted).length || 0;
             const deleted = history.filter(entry => entry.deleted).length || 0;
 
             document.getElementById('totalTasks').textContent = total;
-            document.getElementById('completedTasks').textContent = completed;
+            document.getElementById('doneTasks').textContent = done;
             document.getElementById('activeTasks').textContent = active;
             document.getElementById('deletedTasks').textContent = deleted;
 
             // Daily Stats
             const statsMap = new Map();
             history.forEach(entry => {
-                const creationDate = entry.creationDate || '-';
-                if (!statsMap.has(creationDate)) {
-                    statsMap.set(creationDate, { added: 0, completed: 0, deleted: 0 });
+                const date = entry.creationDate || '-';
+                if (!statsMap.has(date)) {
+                    statsMap.set(date, { added: 0, done: 0, active: 0, deleted: 0 });
                 }
-                statsMap.get(creationDate).added++;
-
-                const completionDate = entry.completionDate || '-';
-                if (completionDate !== '-') {
-                    if (!statsMap.has(completionDate)) {
-                        statsMap.set(completionDate, { added: 0, completed: 0, deleted: 0 });
-                    }
-                    statsMap.get(completionDate).completed++;
-                }
-
-                const lastModifiedDate = entry.lastModifiedDate || '-';
-                if (entry.deleted && lastModifiedDate !== '-') {
-                    if (!statsMap.has(lastModifiedDate)) {
-                        statsMap.set(lastModifiedDate, { added: 0, completed: 0, deleted: 0 });
-                    }
-                    statsMap.get(lastModifiedDate).deleted++;
+                statsMap.get(date).added++;
+                if (entry.deleted) {
+                    statsMap.get(date).deleted++;
+                } else if (entry.done) {
+                    statsMap.get(date).done++;
+                } else {
+                    statsMap.get(date).active++;
                 }
             });
 
@@ -314,7 +334,7 @@
             statsList.innerHTML = '';
             if (sortedDates.length === 0) {
                 const row = document.createElement('tr');
-                row.innerHTML = `<td colspan="4">No data available</td>`;
+                row.innerHTML = `<td colspan="5">No data available</td>`;
                 statsList.appendChild(row);
             } else {
                 sortedDates.forEach(date => {
@@ -323,71 +343,90 @@
                     row.innerHTML = `
                         <td>${date}</td>
                         <td>${stats.added || 0}</td>
-                        <td>${stats.completed || 0}</td>
+                        <td>${stats.done || 0}</td>
+                        <td>${stats.active || 0}</td>
                         <td>${stats.deleted || 0}</td>
                     `;
                     statsList.appendChild(row);
                 });
             }
 
-            // Chart
-            const addedData = sortedDates.map(date => statsMap.get(date)?.added || 0);
-            const completedData = sortedDates.map(date => statsMap.get(date)?.completed || 0);
-            const deletedData = sortedDates.map(date => statsMap.get(date)?.deleted || 0);
-
+            // Overall Chart
             const ctx = document.getElementById('statsChart').getContext('2d');
             if (window.myChart) window.myChart.destroy();
             window.myChart = new Chart(ctx, {
-                type: 'bar',
+                type: 'doughnut',
                 data: {
-                    labels: sortedDates.length ? sortedDates : ['No Data'],
-                    datasets: [
-                        {
-                            label: 'Added',
-                            data: addedData,
-                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                            borderColor: 'rgba(54, 162, 235, 1)',
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Completed',
-                            data: completedData,
-                            backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                            borderColor: 'rgba(75, 192, 192, 1)',
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Deleted',
-                            data: deletedData,
-                            backgroundColor: 'rgba(255, 99, 132, 0.6)',
-                            borderColor: 'rgba(255, 99, 132, 1)',
-                            borderWidth: 1
-                        }
-                    ]
+                    labels: ['Done', 'Active'],
+                    datasets: [{
+                        data: [done, active],
+                        backgroundColor: [
+                            'rgba(75, 192, 192, 0.6)',
+                            'rgba(255, 99, 132, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(255, 99, 132, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
                 },
                 options: {
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                color: '#ffffff',
-                                callback: function(value) { return value > 0 ? value : ''; }
-                            }
-                        },
-                        x: {
-                            ticks: {
-                                color: '#ffffff'
-                            }
-                        }
-                    },
+                    responsive: true,
                     plugins: {
                         legend: {
+                            position: 'top',
                             labels: {
                                 color: '#ffffff'
                             }
                         }
                     }
                 }
+            });
+
+            // Day Charts
+            const dayChartsContainer = document.querySelector('.day-charts');
+            dayChartsContainer.innerHTML = '';
+            days.forEach(day => {
+                const dayHistory = history.filter(entry => entry.day === day && !entry.deleted);
+                const dayDone = dayHistory.filter(entry => entry.done).length;
+                const dayActive = dayHistory.filter(entry => !entry.done).length;
+
+                const card = document.createElement('div');
+                card.className = 'day-chart-card';
+                card.innerHTML = `<h3>${day}</h3><div class="chart-wrapper"><canvas id="chart-${day}"></canvas></div>`;
+                dayChartsContainer.appendChild(card);
+
+                const dayCtx = document.getElementById(`chart-${day}`).getContext('2d');
+                new Chart(dayCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Done', 'Active'],
+                        datasets: [{
+                            data: [dayDone, dayActive],
+                            backgroundColor: [
+                                'rgba(75, 192, 192, 0.6)',
+                                'rgba(255, 99, 132, 0.6)'
+                            ],
+                            borderColor: [
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(255, 99, 132, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    color: '#ffffff'
+                                }
+                            }
+                        }
+                    }
+                });
             });
         }
 
