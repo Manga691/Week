@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard </title>
+    <title>Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
@@ -116,6 +116,12 @@
         .bg-purple-600:hover {
             background-color: #6d28d9;
         }
+        .bg-red-600 {
+            background-color: #dc2626;
+        }
+        .bg-red-600:hover {
+            background-color: #b91c1c;
+        }
         .login-prompt {
             text-align: center;
             padding: 2rem;
@@ -219,6 +225,7 @@
             <div class="controls">
                 <button onclick="window.location.href='index.html'" class="bg-blue-600">Back to Planner</button>
                 <button onclick="window.location.href='history.html'" class="bg-purple-600">View History</button>
+                <button onclick="confirmClearAll()" class="bg-red-600">Clear All</button>
             </div>
             <div class="dashboard-grid">
                 <div class="dashboard-card">
@@ -293,6 +300,21 @@
                 loadDashboard();
             } else {
                 alert('Invalid username. Use N, M, or add new usernames in the code.');
+            }
+        }
+
+        function confirmClearAll() {
+            if (confirm('Are you sure you want to clear all dashboard data? This action cannot be undone.')) {
+                clearAllData();
+            }
+        }
+
+        function clearAllData() {
+            if (currentUsername && usernamePlans[currentUsername]) {
+                localStorage.removeItem(`weeklyPlannerHistory_${usernamePlans[currentUsername].plan}`);
+                localStorage.removeItem(`weeklyPlannerTasks_${usernamePlans[currentUsername].plan}`);
+                loadDashboard();
+                alert('All dashboard data has been cleared.');
             }
         }
 
